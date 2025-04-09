@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>解析大疆的KMZ文件</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 20px;
+      }
+
+      pre {
+        background: #f7f7f7;
+        padding: 10px;
+        border: 1px solid #ddd;
+        word-break: break-all;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>KMZ 解析 Demo</h1>
+    <p>选择一个 <code>.kmz</code> 文件，然后点击“解析 KMZ”按钮。</p>
+    <input type="file" id="kmzInput" accept=".kmz" />
+    <button id="parseBtn">解析 KMZ</button>
+    <h2>解析结果：</h2>
+    <pre id="output">等待解析...</pre>
+
+    <script>
+      function downloadJSON(jsonStr) {
+        // 创建 Blob 对象
+        const blob = new Blob([jsonStr], { type: 'application/json' })
+
+        // 创建下载链接
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'data.json' // 下载的文件名
+        a.click()
+
+        // 释放 URL 对象
+        URL.revokeObjectURL(url)
+      }
+
+      // 创建 Worker 实例（确保文件名与实际文件一致）
+      const worker = new Worker('./libs/wpmz.wasm.worker.js')
+      console.log(worker, 'worker----1')
+
+      // 监听 Worker 返回的消息
+      worker.onmessage = function (e) {
+        const msg = e.data
+        console.log(msg, 'a----1')
+        if (msg.type === 'result') {
+          document.getElementById('output').textContent = msg.payload
+          // downloadJSON(msg.payload)
+          console.log(JSON.parse(msg.payload))
+        } else if (msg.type === 'error') {
+          document.getElementById('output').textContent = '解析出错：' + msg.error.message
+        }
+      }
+
+      // 绑定按钮点击事件
+      document.getElementById('parseBtn').addEventListener('click', async () => {
+        const input = document.getElementById('kmzInput')
+        if (input.files.length === 0) {
+          alert('请先选择一个 .kmz 文件')
+          return
+        }
+        const file = input.files[0]
+        try {
+          // 读取文件为 ArrayBuffer
+          const arrayBuffer = await file.arrayBuffer()
+          // 构造消息，并利用 Transferable 对象传递 ArrayBuffer
+          const message = {
+            type: 'run',
+            uid: 'task-1',
+            method: 'WebUnmarshalKmz',
+            args: [arrayBuffer, file.name],
+          }
+          worker.postMessage(message, [arrayBuffer])
+        } catch (err) {
+          document.getElementById('output').textContent = '读取文件失败：' + err
+        }
+      })
+    </script>
+  </body>
+</html>
