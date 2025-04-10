@@ -2,6 +2,7 @@
 
 ```
 把大疆的kmz文件解析成json数据
+预览地址：https://hdjhdjhdj.github.io/dji-kmz/
 ```
 
 # 运行流程
